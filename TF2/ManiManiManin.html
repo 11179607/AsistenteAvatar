@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Asistente ManiMM</title>
+  <link rel="icon" type="image/jpeg" href="ManiManiManin.jpeg">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(to right, #eef2f3, #cfd9df);
+      margin: 0;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    img {
+      height: 100px;
+      margin-bottom: 15px;
+    }
+
+    h3 {
+      color: #2c3e50;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    #chat {
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      height: 350px;
+      overflow-y: auto;
+      padding: 15px;
+      margin-bottom: 20px;
+      width: 90%;
+      max-width: 800px;
+      transition: all 0.3s ease;
+    }
+
+    #chat div {
+      margin: 10px 0;
+      padding: 12px 16px;
+      border-radius: 10px;
+      max-width: 75%;
+      word-wrap: break-word;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    #chat div b {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    #chat div:nth-child(odd) {
+      background: #e8f0fe;
+      align-self: flex-start;
+    }
+
+    #chat div:nth-child(even) {
+      background: #d1f2eb;
+      align-self: flex-end;
+      text-align: right;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      width: 90%;
+      max-width: 800px;
+      flex-wrap: wrap;
+    }
+
+    #txt {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #ccc;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.3s ease;
+      min-width: 200px;
+    }
+
+    #txt:focus {
+      border-color: #3498db;
+      outline: none;
+    }
+
+    button {
+      padding: 12px 18px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #2980b9;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+<body>
+  <img src="ManiManiManin.jpeg" alt="Logo IA Humana" style="height:150px; margin-bottom:30px;">
+  <h3>Soy YO</h3>
+  <div id="chat"></div>
+  <div class="controls">
+    <input id="txt" placeholder="Escribe o habla..." />
+    <button type="button" onclick="send()">✉️ Enviar</button>
+    <button type="button" onclick="hablar()">🎙️ Hablar</button>
+    <button type="button" onclick="toggleVoz()">🔇 Silenciar</button>
+  </div>
+
+  <script type="module">
+    import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+    const model = new GoogleGenerativeAI("AIzaSyALwQWqCVqqC5G65oRszDSRCQtrVqWYhFw").getGenerativeModel({ model: "gemini-2.5-flash" });
+    const chat = document.getElementById("chat"), txt = document.getElementById("txt");
+
+    let vozActiva = true;
+
+    async function send() {
+      if (!txt.value) return;
+      add(txt.value, "Usuario");
+      let q = txt.value;
+      txt.value = "";
+      try {
+        let r = await model.generateContent("Responde en español: " + q);
+        let respuesta = r.response.text();
+        add(respuesta, "ManiManiManin");
+
+        const textoPlano = respuesta
+          .replace(/\*\*(.*?)\*\*/g, '$1')
+          .replace(/\*(.*?)\*/g, '$1')
+          .replace(/`(.*?)`/g, '$1')
+          .replace(/#+\s?(.*)/g, '$1')
+          .replace(/!\[.*?\]\(.*?\)/g, '')
+          .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+
+        if (vozActiva) {
+          speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(textoPlano);
+          utterance.lang = "es-ES";
+          const voces = speechSynthesis.getVoices();
+          utterance.voice = voces.find(v => v.lang === "es-ES" && v.name.toLowerCase().includes("male")) || voces.find(v => v.lang === "es-ES");
+          speechSynthesis.speak(utterance);
+        }
+      } catch {
+        add("Error al generar respuesta", "ManiManiManin");
+      }
+    }
+
+    window.send = send;
+
+    function add(t, c) {
+      chat.innerHTML += `<div><b>${c}:</b> ${marked.parse(t)}</div>`;
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    txt.addEventListener("keypress", e => e.key === "Enter" && send());
+
+    window.speechSynthesis.onvoiceschanged = () => {};
+
+    function hablar() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Tu navegador no soporta reconocimiento de voz.");
+        return;
+      }
+
+      const reconocimiento = new SpeechRecognition();
+      reconocimiento.lang = "es-ES";
+      reconocimiento.interimResults = false;
+      reconocimiento.maxAlternatives = 1;
+
+      reconocimiento.onresult = e => {
+        const texto = e.results[0][0].transcript;
+        txt.value = texto;
+        send();
+      };
+
+      reconocimiento.onerror = e => {
+        console.error("Error de voz:", e.error);
+      };
+
+      reconocimiento.start();
+    }
+
+    window.hablar = hablar;
+
+    function toggleVoz() {
+      vozActiva = !vozActiva;
+      const boton = document.querySelector('button[onclick="toggleVoz()"]');
+      boton.textContent = vozActiva ? "🔇 Silenciar" : "🔊 Activar voz";
+    }
+
+    window.toggleVoz = toggleVoz;
+  </script>
+</body>
+<footer style="margin-top: 20px; text-align: center; font-size: 14px; color: #7f8c8d;">
+  <p>Created by Marlon Carabali Ⓡ</p>
+</footer>
